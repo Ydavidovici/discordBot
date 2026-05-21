@@ -1,5 +1,6 @@
 import { connect } from './discord.js';
 import { startServer } from './server.js';
+import { startPoller } from './poller.js';
 
 // Start bot
 const token = process.env.DISCORD_BOT_TOKEN;
@@ -16,3 +17,4 @@ await connect(token);
 // Start HTTP Server
 const PORT = process.env.PORT || 3535;
 startServer(PORT);
+startPoller();
