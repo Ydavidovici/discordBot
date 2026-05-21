@@ -58,12 +58,12 @@ function handleRequest(req) {
                 }
 
                 // Format message
-                let formattedMessage = `**[${project || consumer.name || 'System'}]**`;
-                if (status) {
-                    const statusIcon = status.toLowerCase() === 'success' ? '✅' : status.toLowerCase() === 'error' ? '❌' : 'ℹ️';
-                    formattedMessage += ` ${statusIcon}`;
+                let formattedMessage = message;
+                
+                // Discord enforces a strict 2000 character limit per message
+                if (formattedMessage.length > 2000) {
+                    formattedMessage = formattedMessage.substring(0, 1997) + '...';
                 }
-                formattedMessage += `\n${message}`;
 
                 // Send via Discord
                 const success = await sendMessage(targetChannelId, formattedMessage);
