@@ -113,6 +113,11 @@ client.once('clientReady', async () => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
+  const restrictedChannelId = process.env.COMMAND_CHANNEL_ID;
+  if (restrictedChannelId && interaction.channelId !== restrictedChannelId) {
+    return interaction.reply({ content: `Commands for this bot must be used in <#${restrictedChannelId}>.`, ephemeral: true });
+  }
+
   const { commandName } = interaction;
 
   if (commandName === 'clear') {
