@@ -96,6 +96,13 @@ client.once('clientReady', async () => {
     const commandData = commands.map(c => c.toJSON());
     console.log(`[Discord] Registering ${commandData.length} command(s): ${commandData.map(c => c.name).join(', ')}`);
 
+    // Clear any lingering guild-specific commands (prevents duplicates alongside global ones)
+    await Promise.all(
+      client.guilds.cache.map(guild =>
+        rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: [] })
+      )
+    );
+
     await rest.put(Routes.applicationCommands(client.user.id), { body: commandData });
     console.log(`[Discord] Successfully registered (/) commands.`);
   } catch (error) {
