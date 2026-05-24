@@ -1,0 +1,29 @@
+# Discord Bot - production
+#
+# Install on the droplet:
+#   sudo cp discord-bot-prod.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now discord-bot-prod
+#   journalctl -u discord-bot-prod -f      # watch logs
+#
+# EDIT FOR YOUR DROPLET:
+#   User=             account that owns the clone (run `which bun` as that user)
+#   WorkingDirectory= the prod clone path; must contain its own .env and consumers.json
+#   ExecStart=        absolute path to bun for that user (no PATH under systemd)
+# Port / token / channel IDs are NOT set here - they come from this clone's .env.
+
+[Unit]
+Description=Discord Bot (prod)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=discordbot
+WorkingDirectory=/opt/discordbot-prod
+ExecStart=/home/discordbot/.bun/bin/bun run src/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
