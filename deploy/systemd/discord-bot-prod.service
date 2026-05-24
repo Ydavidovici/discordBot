@@ -19,9 +19,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=discordbot
-WorkingDirectory=/opt/discordbot-prod
-ExecStart=/home/discordbot/.bun/bin/bun run src/index.js
+User=root
+WorkingDirectory=/root/srv/discordBot/prod
+ExecStart=/root/.bun/bin/bun run src/index.js
 Restart=on-failure
 RestartSec=5
 
