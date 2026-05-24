@@ -1,9 +1,22 @@
 {
   "jewkie_chess_9a7b4c2d1e3f8a0b": {
-    "name": "JewkieBot Chess Engine",
+    "name": "JewkieBot Chess Engine (prod)",
     "channels": {
       "logs": "1506845976009244842",
       "notifications": "1506847303778963526"
+    }
+  },
+  "jewkie_chess_dev_abc123xyz789": {
+    "name": "JewkieBot Chess Engine (dev)",
+    "channels": {
+      "logs": "1508150660338679968",
+      "notifications": "1508150702466138242"
+    }
+  },
+  "ps_notify_7f3a2b9c1e4d8a0f": {
+    "name": "PowerShell",
+    "channels": {
+      "notifications": "1506979764886310993"
     }
   }
 }
