@@ -110,12 +110,17 @@ client.once('clientReady', async () => {
   }
 });
 
+export function isCommandAllowed(channelId) {
+  const restricted = process.env.COMMAND_CHANNEL_ID;
+  return !restricted || channelId === restricted;
+}
+
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const restrictedChannelId = process.env.COMMAND_CHANNEL_ID;
-  if (restrictedChannelId && interaction.channelId !== restrictedChannelId) {
-    return interaction.reply({ content: `Commands for this bot must be used in <#${restrictedChannelId}>.`, ephemeral: true });
+  if (!isCommandAllowed(interaction.channelId)) {
+    const restricted = process.env.COMMAND_CHANNEL_ID;
+    return interaction.reply({ content: `Commands for this bot must be used in <#${restricted}>.`, ephemeral: true });
   }
 
   const { commandName } = interaction;
