@@ -1,0 +1,9 @@
+{
+  "GENERATE_A_RANDOM_KEY_PER_APP": {
+    "name": "My App",
+    "channels": {
+      "logs": "DISCORD_CHANNEL_ID_HERE",
+      "notifications": "DISCORD_CHANNEL_ID_HERE"
+    }
+  }
+}
