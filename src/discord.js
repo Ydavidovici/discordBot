@@ -118,6 +118,7 @@ export function isCommandAllowed(channelId) {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
+  try {
   if (!isCommandAllowed(interaction.channelId)) {
     const restricted = process.env.COMMAND_CHANNEL_ID;
     return interaction.reply({ content: `Commands for this bot must be used in <#${restricted}>.`, ephemeral: true });
@@ -376,6 +377,15 @@ client.on('interactionCreate', async interaction => {
       timestamp: new Date().toISOString(),
     };
     await interaction.editReply({ embeds: [embed] });
+  }
+
+  } catch (error) {
+    // Gracefully handle expired interaction tokens and other Discord API errors
+    if (error.code === 10062) {
+      console.warn('[Discord] Interaction expired (token timed out), ignoring.');
+    } else {
+      console.error('[Discord] Unhandled interaction error:', error);
+    }
   }
 });
 
