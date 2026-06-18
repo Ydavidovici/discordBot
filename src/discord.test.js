@@ -1,15 +1,24 @@
-import { expect, test, beforeEach, afterEach } from "bun:test";
-import { isCommandAllowed } from "./discord.js";
+import { expect, test, beforeEach, afterEach, mock } from "bun:test";
 
 // discord.js tries to connect on import — mock it out entirely
-import { mock } from "bun:test";
 mock.module("discord.js", () => {
     const builder = () => {
         const obj = new Proxy({}, { get: (_, prop) => prop === 'toJSON' ? () => ({}) : () => obj });
         return obj;
     };
     return {
-        Client: class { on() {} once() {} },
+        Client: class {
+            constructor() {
+                this.ws = { ping: 42 };
+                this.user = { id: "123", tag: "bot#1234" };
+                this.guilds = { cache: [] };
+            }
+            on(event, cb) {
+                if (event === "interactionCreate") globalThis.interactionCallback = cb;
+            }
+            once() {}
+            login() {}
+        },
         GatewayIntentBits: { Guilds: 1 },
         REST: class { setToken() { return this; } put() { return Promise.resolve(); } },
         Routes: { applicationCommands: () => '', applicationGuildCommands: () => '' },
@@ -18,10 +27,18 @@ mock.module("discord.js", () => {
     };
 });
 
+const { isCommandAllowed } = await import("./discord.js");
+
 const ORIGINAL_ENV = process.env.COMMAND_CHANNEL_ID;
+const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
     delete process.env.COMMAND_CHANNEL_ID;
+    globalThis.fetch = mock(() => Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({})
+    }));
 });
 
 afterEach(() => {
@@ -30,7 +47,32 @@ afterEach(() => {
     } else {
         delete process.env.COMMAND_CHANNEL_ID;
     }
+    globalThis.fetch = originalFetch;
 });
+
+// Helper to create mocked interactions
+function createInteraction(commandName, options = {}) {
+    return {
+        isChatInputCommand: () => true,
+        channelId: "123",
+        commandName,
+        options: {
+            getInteger: (name) => options[name],
+            getBoolean: (name) => options[name],
+            getString: (name) => options[name],
+            getSubcommandGroup: () => options._subcommandGroup,
+            getSubcommand: () => options._subcommand,
+        },
+        reply: mock(),
+        deferReply: mock(),
+        editReply: mock(),
+        channel: {
+            bulkDelete: mock().mockResolvedValue({ size: Math.min(options.amount || 0, 100) }),
+            send: mock(),
+        },
+        createdTimestamp: Date.now() - 50,
+    };
+}
 
 test("isCommandAllowed returns true when COMMAND_CHANNEL_ID is not set", () => {
     expect(isCommandAllowed("any_channel_id")).toBe(true);
@@ -56,4 +98,124 @@ test("isCommandAllowed returns false when COMMAND_CHANNEL_ID is set and channel 
 test("isCommandAllowed returns true when COMMAND_CHANNEL_ID is empty string (treat as unset)", () => {
     process.env.COMMAND_CHANNEL_ID = "";
     expect(isCommandAllowed("any_channel")).toBe(true);
+});
+
+// Slash Command tests
+test("command: ping", async () => {
+    const interaction = createInteraction("ping");
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.reply).toHaveBeenCalled();
+    const replyArg = interaction.reply.mock.calls[0][0];
+    expect(replyArg.content).toContain("Pong!");
+});
+
+test("command: status", async () => {
+    const interaction = createInteraction("status");
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.reply).toHaveBeenCalled();
+    const replyArg = interaction.reply.mock.calls[0][0];
+    expect(replyArg.embeds[0].title).toBe("🤖 Bot Server Status");
+});
+
+test("command: test", async () => {
+    const interaction = createInteraction("test");
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.channel.send).toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalled();
+});
+
+test("command: consumers", async () => {
+    const interaction = createInteraction("consumers");
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.reply).toHaveBeenCalled();
+});
+
+test("command: clear", async () => {
+    const interaction = createInteraction("clear", { amount: 5 });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(interaction.channel.bulkDelete).toHaveBeenCalledWith(5, true);
+    expect(interaction.editReply).toHaveBeenCalled();
+    const replyArg = interaction.editReply.mock.calls[0][0];
+    expect(replyArg.content).toContain("Successfully deleted");
+});
+
+test("command: analyze", async () => {
+    const interaction = createInteraction("analyze", { fen: "startpos", depth: 10 });
+    globalThis.fetch = mock().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ bestMove: "e4", depth: 10 })
+    });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: services", async () => {
+    const interaction = createInteraction("services");
+    globalThis.fetch = mock().mockResolvedValue({
+        ok: true,
+        status: 200,
+    });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: lichess status", async () => {
+    const interaction = createInteraction("lichess", { _subcommand: "status" });
+    globalThis.fetch = mock().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ running: true, activeGames: [] })
+    });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: lichess start", async () => {
+    const interaction = createInteraction("lichess", { _subcommand: "start" });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: lichess stop", async () => {
+    const interaction = createInteraction("lichess", { _subcommand: "stop" });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: lichess weakest", async () => {
+    const interaction = createInteraction("lichess", { _subcommand: "weakest" });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: lichess autoplay start", async () => {
+    const interaction = createInteraction("lichess", { _subcommandGroup: "autoplay", _subcommand: "start", limit: 300 });
+    globalThis.fetch = mock().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ autoplay: { limit: 300 } })
+    });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
+});
+
+test("command: lichess autoplay stop", async () => {
+    const interaction = createInteraction("lichess", { _subcommandGroup: "autoplay", _subcommand: "stop" });
+    await globalThis.interactionCallback(interaction);
+    expect(interaction.deferReply).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalled();
 });
