@@ -140,18 +140,6 @@ test("command: clear", async () => {
     expect(replyArg.content).toContain("Successfully deleted");
 });
 
-test("command: analyze", async () => {
-    const interaction = createInteraction("analyze", { fen: "startpos", depth: 10 });
-    globalThis.fetch = mock().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ bestMove: "e4", depth: 10 })
-    });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
-});
-
 test("command: services", async () => {
     const interaction = createInteraction("services");
     globalThis.fetch = mock().mockResolvedValue({
@@ -164,58 +152,16 @@ test("command: services", async () => {
     expect(interaction.editReply).toHaveBeenCalled();
 });
 
-test("command: lichess status", async () => {
-    const interaction = createInteraction("lichess", { _subcommand: "status" });
-    globalThis.fetch = mock().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ running: true, activeGames: [] })
-    });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
-});
-
-test("command: lichess start", async () => {
-    const interaction = createInteraction("lichess", { _subcommand: "start" });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
-});
-
-test("command: lichess stop", async () => {
-    const interaction = createInteraction("lichess", { _subcommand: "stop" });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
-});
-
-test("command: lichess weakest", async () => {
-    const interaction = createInteraction("lichess", { _subcommand: "weakest" });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
-});
-
-test("command: lichess autoplay start", async () => {
-    const interaction = createInteraction("lichess", { _subcommandGroup: "autoplay", _subcommand: "start", limit: 300 });
-    globalThis.fetch = mock().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ autoplay: { limit: 300 } })
-    });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
-});
-
-test("command: lichess autoplay stop", async () => {
-    const interaction = createInteraction("lichess", { _subcommandGroup: "autoplay", _subcommand: "stop" });
-    await globalThis.interactionCallback(interaction);
-    expect(interaction.deferReply).toHaveBeenCalled();
-    expect(globalThis.fetch).toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalled();
+// Chess commands belong to JewkieBot's own Discord bot (in the jewkiebot app).
+// This bot used to answer /lichess and /analyze too, while logged in with the
+// same token, so both answered one interaction ("Unknown interaction", 10062).
+test("chess commands are not handled by this bot", async () => {
+    for (const name of ["lichess", "analyze"]) {
+        const interaction = createInteraction(name, { _subcommand: "status" });
+        globalThis.fetch = mock();
+        await globalThis.interactionCallback(interaction);
+        expect(interaction.reply).not.toHaveBeenCalled();
+        expect(interaction.deferReply).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    }
 });
